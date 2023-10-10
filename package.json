@@ -1,6 +1,6 @@
 {
-  "name": "@orbitdb/core",
-  "version": "1.0.0",
+  "name": "@chris.troutner/orbitdb-helia",
+  "version": "1.0.1",
   "description": "Distributed p2p database on IPFS",
   "author": "Haad",
   "license": "MIT",
