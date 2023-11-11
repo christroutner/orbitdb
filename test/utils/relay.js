@@ -1,4 +1,4 @@
-import { mplex } from '@libp2p/mplex'
+import { yamux } from '@chainsafe/libp2p-yamux'
 import { createLibp2p } from 'libp2p'
 import { noise } from '@chainsafe/libp2p-noise'
 import { circuitRelayServer } from 'libp2p/circuit-relay'
@@ -29,13 +29,12 @@ const server = await createLibp2p({
     })
   ],
   connectionEncryption: [noise()],
-  streamMuxers: [mplex()],
+  streamMuxers: [yamux()],
   services: {
     identify: identifyService(),
     relay: circuitRelayServer({
       reservations: {
         maxReservations: 5000,
-        reservationClearInterval: 500,
         reservationTtl: 1000,
         defaultDataLimit: BigInt(1024 * 1024 * 1024)
       }

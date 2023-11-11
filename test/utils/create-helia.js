@@ -5,7 +5,7 @@ import { webSockets } from '@libp2p/websockets'
 import { webRTC } from '@libp2p/webrtc'
 import { all } from '@libp2p/websockets/filters'
 import { noise } from '@chainsafe/libp2p-noise'
-import { mplex } from '@libp2p/mplex'
+import { yamux } from '@chainsafe/libp2p-yamux'
 import { gossipsub } from '@chainsafe/libp2p-gossipsub'
 import { circuitRelayTransport } from 'libp2p/circuit-relay'
 
@@ -28,7 +28,9 @@ export default async () => {
       })
     ],
     connectionEncryption: [noise()],
-    streamMuxers: [mplex()],
+    streamMuxers: [
+      yamux()
+    ],
     connectionGater: {
       denyDialMultiaddr: () => {
         return false

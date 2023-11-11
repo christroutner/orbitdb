@@ -1,7 +1,7 @@
 import { strictEqual, deepStrictEqual, notStrictEqual } from 'assert'
 import { rimraf } from 'rimraf'
 import OrbitDB from '../src/orbitdb.js'
-import { IPFSAccessController, OrbitDBAccessController, useAccessController, getAccessController, removeAccessController } from '../src/access-controllers/index.js'
+import { IPFSAccessController, OrbitDBAccessController, useAccessController, getAccessController } from '../src/access-controllers/index.js'
 import pathJoin from '../src/utils/path-join.js'
 import createHelia from './utils/create-helia.js'
 
@@ -24,7 +24,6 @@ describe('Add a custom access controller', function () {
   let orbitdb
 
   before(async () => {
-    // ipfs = await IPFS.create({ ...config.daemon1, repo: './ipfs1' })
     ipfs = await createHelia()
     orbitdb = await OrbitDB({ ipfs })
   })
@@ -37,9 +36,6 @@ describe('Add a custom access controller', function () {
     if (ipfs) {
       await ipfs.stop()
     }
-
-    // Remove the added custom database type from OrbitDB import
-    removeAccessController(type)
 
     await rimraf('./orbitdb')
     await rimraf('./ipfs1')
@@ -93,19 +89,6 @@ describe('Add a custom access controller', function () {
 
     it('returns custom access controller after adding it', async () => {
       deepStrictEqual(getAccessController(type), CustomAccessController)
-    })
-
-    it('can be removed from supported access controllers', async () => {
-      let err
-      removeAccessController(type)
-
-      try {
-        getAccessController(type)
-      } catch (e) {
-        err = e.toString()
-      }
-
-      deepStrictEqual(err, 'Error: AccessController type \'custom!\' is not supported')
     })
   })
 })
