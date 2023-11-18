@@ -272,6 +272,8 @@ const Sync = async ({ ipfs, log, events, onSynced, start, timeout }) => {
    * @instance
    */
   const startSync = async () => {
+    console.log('startSync() called. started: ', started)
+
     if (!started) {
       // Exchange head entries with peers when connected
       await ipfs.libp2p.handle(headsSyncAddress, handleReceiveHeads)

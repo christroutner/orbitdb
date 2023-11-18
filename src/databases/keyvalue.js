@@ -73,6 +73,8 @@ const KeyValue = () => async ({ ipfs, identity, address, name, access, directory
    * @instance
    */
   const iterator = async function * ({ amount } = {}) {
+    console.log('keyvalue.js iterator() called.')
+
     const keys = {}
     let count = 0
     for await (const entry of log.traverse()) {
