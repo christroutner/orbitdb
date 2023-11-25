@@ -18,6 +18,11 @@ const { LastWriteWins, NoZeroes } = ConflictResolution
 const randomId = () => new Date().getTime().toString()
 const maxClockTimeReducer = (res, acc) => Math.max(res, acc.clock.time)
 
+// This variable will be used to point to an injected validation function.
+// Old DB entries will be validated against this function before being
+// saved to the DB index.
+let localValidationFunc = false
+
 // Default storage for storing the Log and its entries. Default: Memory. Options: Memory, LRU, IPFS.
 const DefaultStorage = MemoryStorage
 
@@ -126,13 +131,30 @@ const Log = async (identity, { logId, logHeads, access, entryStorage, headsStora
    */
   const get = async (hash) => {
     console.log('Entering get()')
-    console.log('_entries: ', _entries)
+    // console.log('_entries: ', _entries)
     const bytes = await _entries.get(hash)
-    console.log('bytes: ', bytes)
+    // console.log('bytes: ', bytes)
     if (bytes) {
       const entry = await Entry.decode(bytes)
-      console.log('entry: ', entry)
-      await _index.put(hash, true)
+      // console.log('entry: ', entry)
+      console.log('hash: ', hash)
+      console.log(' ')
+
+      // If localValidationFunc has not been injected, go to default behavior.
+      if (!localValidationFunc) {
+        await _index.put(hash, true)
+      } else {
+        // User has injected a validation function to validate peer entries
+        // against. If they do not pass validation, do not add them to storage.
+
+        // Validate the entry.
+        const isValid = await localValidationFunc(entry)
+        // If the entry is valid, add it to the local DB index.
+        if (isValid) {
+          await _index.put(hash, true)
+        }
+      }
+
       console.log('index.put() finished')
       return entry
     }
@@ -183,7 +205,7 @@ const Log = async (identity, { logId, logHeads, access, entryStorage, headsStora
       refs
     )
 
-    console.log("Calling canAppend() from log.js/append(). entry: ", entry)
+    console.log('Calling canAppend() from log.js/append(). entry: ', entry)
 
     // Authorize the entry
     const canAppend = await access.canAppend(entry)
@@ -303,7 +325,7 @@ const Log = async (identity, { logId, logHeads, access, entryStorage, headsStora
     shouldStopFn = shouldStopFn || defaultStopFn
     // Start traversal from given entries or from current heads
     rootEntries = rootEntries || (await heads())
-    console.log('rootEntries: ', rootEntries)
+    // console.log('rootEntries: ', rootEntries)
 
     // Sort the given given root entries and use as the starting stack
     let stack = rootEntries.sort(sortFn)
@@ -354,13 +376,13 @@ const Log = async (identity, { logId, logHeads, access, entryStorage, headsStora
             if (!traversed[hash] && !fetched[hash]) {
               fetched[hash] = true
               const gotHash = await get(hash)
-              console.log('gotHash: ', gotHash)
+              console.log('gotHash: ...')
               return gotHash
             }
           }
           // Fetch the next/reference entries
           const nexts = await Promise.all(toFetch.map(fetchEntries))
-          console.log('nexts: ', nexts)
+          // console.log('nexts: ', nexts)
 
           // Add the next and refs fields from the fetched entries to the next round
           toFetch = nexts
@@ -369,7 +391,7 @@ const Log = async (identity, { logId, logHeads, access, entryStorage, headsStora
             .filter(notIndexed)
           // Add the fetched entries to the stack to be processed
           stack = [...nexts, ...stack]
-          console.log('stack: ', stack)
+          // console.log('stack: ', stack)
         }
       }
     }
@@ -503,6 +525,17 @@ const Log = async (identity, { logId, logHeads, access, entryStorage, headsStora
     await _entries.close()
   }
 
+  /*
+    Custom addition by CT 11/25/23
+    injectDeps is used to inject a validation function. This function is called
+    before writing the hash of an entry to the index storage.
+  */
+  const injectDeps = (validationFunc) => {
+    console.log('oplog/log.js injectDeps() executed.')
+
+    localValidationFunc = validationFunc
+  }
+
   /**
    * Check if an object is a Log.
    * @param {Log} obj
@@ -528,7 +561,7 @@ const Log = async (identity, { logId, logHeads, access, entryStorage, headsStora
    * @private
    */
   const getReferences = async (heads, amount = 0) => {
-    console.log(`getReferences() heads: `, heads)
+    console.log('getReferences() heads: ', heads)
     console.log('amount: ', amount)
 
     let refs = []
@@ -571,6 +604,7 @@ const Log = async (identity, { logId, logHeads, access, entryStorage, headsStora
     iterator,
     clear,
     close,
+    injectDeps,
     access,
     identity,
     storage: _entries
