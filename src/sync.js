@@ -171,7 +171,10 @@ const Sync = async ({ ipfs, log, events, onSynced, start, timeout }) => {
     const peerId = String(connection.remotePeer)
     try {
       peers.add(peerId)
-      await pipe(stream, receiveHeads(peerId), sendHeads, stream)
+      try {
+        await pipe(stream, receiveHeads(peerId), sendHeads, stream)
+      } catch(err) { /* exit quietly */}
+
     } catch (e) {
       peers.delete(peerId)
       events.emit('error', e)
