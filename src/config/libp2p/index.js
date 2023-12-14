@@ -5,7 +5,8 @@ import { all } from '@libp2p/websockets/filters'
 import { noise } from '@chainsafe/libp2p-noise'
 import { yamux } from '@chainsafe/libp2p-yamux'
 import { gossipsub } from '@chainsafe/libp2p-gossipsub'
-import { circuitRelayTransport } from 'libp2p/circuit-relay'
+// import { circuitRelayTransport } from 'libp2p/circuit-relay'
+import { circuitRelayTransport } from '@libp2p/circuit-relay-v2'
 
 /**
  * A basic Libp2p configuration for node servers.
