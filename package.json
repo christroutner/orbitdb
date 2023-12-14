@@ -20,6 +20,7 @@
   "dependencies": {
     "@ipld/dag-cbor": "^9.0.5",
     "@libp2p/crypto": "^2.0.4",
+    "@libp2p/identify": "1.0.6",
     "helia": "^2.1.0",
     "it-pipe": "^3.0.1",
     "level": "^8.0.0",

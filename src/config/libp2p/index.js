@@ -1,4 +1,4 @@
-import { identifyService } from 'libp2p/identify'
+import { identify } from '@libp2p/identify'
 import { webSockets } from '@libp2p/websockets'
 import { webRTC } from '@libp2p/webrtc'
 import { all } from '@libp2p/websockets/filters'
@@ -33,7 +33,7 @@ export const DefaultLibp2pOptions = {
     }
   },
   services: {
-    identify: identifyService(),
+    identify: identify(),
     pubsub: gossipsub({ allowPublishToZeroPeers: true })
   }
 }
@@ -64,7 +64,7 @@ export const DefaultLibp2pBrowserOptions = {
     }
   },
   services: {
-    identify: identifyService(),
+    identify: identify(),
     pubsub: gossipsub({ allowPublishToZeroPeers: true })
   }
 }
