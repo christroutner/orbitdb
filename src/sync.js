@@ -173,7 +173,9 @@ const Sync = async ({ ipfs, log, events, onSynced, start, timeout }) => {
       peers.add(peerId)
       try {
         await pipe(stream, receiveHeads(peerId), sendHeads, stream)
-      } catch(err) { /* exit quietly */}
+      } catch(err) {
+        console.error('OrbitDB: Error in handleReceiveHeads(): ', err.message)
+      }
 
     } catch (e) {
       peers.delete(peerId)
@@ -202,7 +204,9 @@ const Sync = async ({ ipfs, log, events, onSynced, start, timeout }) => {
           // Handling 'source is not async iterable' error
           try {
             await pipe(sendHeads, stream, receiveHeads(peerId))
-          } catch(err) { /* exit silently */}
+          } catch(err) {
+            console.error('OrbitDB: Error in handlePeerSubscribed(): ', err.message)
+          }
 
         } catch (e) {
           console.error(e)
