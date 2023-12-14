@@ -195,7 +195,12 @@ const Sync = async ({ ipfs, log, events, onSynced, start, timeout }) => {
         try {
           peers.add(peerId)
           const stream = await ipfs.libp2p.dialProtocol(remotePeer, headsSyncAddress, { signal })
-          await pipe(sendHeads, stream, receiveHeads(peerId))
+
+          // Handling 'source is not async iterable' error
+          try {
+            await pipe(sendHeads, stream, receiveHeads(peerId))
+          } catch(err) { /* exit silently */}
+
         } catch (e) {
           console.error(e)
           peers.delete(peerId)
