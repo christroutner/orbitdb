@@ -18,6 +18,11 @@ const { LastWriteWins, NoZeroes } = ConflictResolution
 const randomId = () => new Date().getTime().toString()
 const maxClockTimeReducer = (res, acc) => Math.max(res, acc.clock.time)
 
+// This variable will be used to point to an injected validation function.
+// Old DB entries will be validated against this function before being
+// saved to the DB index.
+let localValidationFunc = false
+
 // Default storage for storing the Log and its entries. Default: Memory. Options: Memory, LRU, IPFS.
 const DefaultStorage = MemoryStorage
 
@@ -125,10 +130,32 @@ const Log = async (identity, { logId, logHeads, access, entryStorage, headsStora
    * @instance
    */
   const get = async (hash) => {
+    // console.log('Entering get()')
+    // console.log('_entries: ', _entries)
     const bytes = await _entries.get(hash)
+    // console.log('bytes: ', bytes)
     if (bytes) {
       const entry = await Entry.decode(bytes)
-      await _index.put(hash, true)
+      // console.log('entry: ', entry)
+      // console.log('hash: ', hash)
+      // console.log(' ')
+
+      // If localValidationFunc has not been injected, go to default behavior.
+      if (!localValidationFunc) {
+        await _index.put(hash, true)
+      } else {
+        // User has injected a validation function to validate peer entries
+        // against. If they do not pass validation, do not add them to storage.
+
+        // Validate the entry.
+        const isValid = await localValidationFunc(entry)
+        // If the entry is valid, add it to the local DB index.
+        if (isValid) {
+          await _index.put(hash, true)
+        }
+      }
+
+      // console.log('index.put() finished')
       return entry
     }
   }
@@ -149,17 +176,25 @@ const Log = async (identity, { logId, logHeads, access, entryStorage, headsStora
    * @instance
    */
   const append = async (data, options = { referencesCount: 0 }) => {
+    // console.log('Entering log.js/append()')
+
     // 1. Prepare entry
     // 2. Authorize entry
     // 3. Store entry
     // 4. return Entry
     // Get current heads of the log
     const heads_ = await heads()
+    // console.log('heads: ', heads)
+
     // Create the next pointers from heads
     const nexts = heads_.map(entry => entry.hash)
+    // console.log('nexts: ', nexts)
+
     // Get references (pointers) to multiple entries in the past
     // (skips the heads which are covered by the next field)
     const refs = await getReferences(heads_, options.referencesCount + heads_.length)
+    // console.log('refs: ', refs)
+
     // Create the entry
     const entry = await Entry.create(
       identity,
@@ -169,6 +204,9 @@ const Log = async (identity, { logId, logHeads, access, entryStorage, headsStora
       nexts,
       refs
     )
+
+    // console.log('Calling canAppend() from log.js/append(). entry: ', entry)
+
     // Authorize the entry
     const canAppend = await access.canAppend(entry)
     if (!canAppend) {
@@ -279,12 +317,16 @@ const Log = async (identity, { logId, logHeads, access, entryStorage, headsStora
    * @instance
    */
   const traverse = async function * (rootEntries, shouldStopFn, useRefs = true) {
+    // console.log('Entering traverse()')
+
     // By default, we don't stop traversal and traverse
     // until the end of the log
     const defaultStopFn = () => false
     shouldStopFn = shouldStopFn || defaultStopFn
     // Start traversal from given entries or from current heads
     rootEntries = rootEntries || (await heads())
+    // console.log('rootEntries: ', rootEntries)
+
     // Sort the given given root entries and use as the starting stack
     let stack = rootEntries.sort(sortFn)
     // Keep a record of all the hashes of entries we've traversed and yielded
@@ -296,37 +338,51 @@ const Log = async (identity, { logId, logHeads, access, entryStorage, headsStora
     const notIndexed = (hash) => !(traversed[hash] || fetched[hash])
     // Current entry during traversal
     let entry
+
     // Start traversal and process stack until it's empty (traversed the full log)
     while (stack.length > 0) {
+      // console.log('stack.length: ', stack.length)
       stack = stack.sort(sortFn)
+
       // Get the next entry from the stack
       entry = stack.pop()
+
       if (entry) {
         const { hash, next, refs } = entry
+
         // If we have an entry that we haven't traversed yet, process it
         if (!traversed[hash]) {
           // Yield the current entry
           yield entry
+
           // If we should stop traversing, stop here
           const done = await shouldStopFn(entry)
+          // console.log('done: ', done)
           if (done === true) {
             break
           }
+
           // Add to the hash indices
           traversed[hash] = true
           fetched[hash] = true
+
           // Add the next and refs hashes to the list of hashes to fetch next,
           // filter out traversed and fetched hashes
           toFetch = [...toFetch, ...next, ...(useRefs ? refs : [])].filter(notIndexed)
-          // Function to fetch an entry and making sure it's not a duplicate (check the hash indices)
-          const fetchEntries = (hash) => {
+
+          // Function to fetch an entry and making sure it's not a duplicate
+          // (check the hash indices)
+          const fetchEntries = async (hash) => {
             if (!traversed[hash] && !fetched[hash]) {
               fetched[hash] = true
-              return get(hash)
+              const gotHash = await get(hash)
+              // console.log('gotHash: ...')
+              return gotHash
             }
           }
           // Fetch the next/reference entries
           const nexts = await Promise.all(toFetch.map(fetchEntries))
+          // console.log('nexts: ', nexts)
 
           // Add the next and refs fields from the fetched entries to the next round
           toFetch = nexts
@@ -335,9 +391,12 @@ const Log = async (identity, { logId, logHeads, access, entryStorage, headsStora
             .filter(notIndexed)
           // Add the fetched entries to the stack to be processed
           stack = [...nexts, ...stack]
+          // console.log('stack: ', stack)
         }
       }
     }
+
+    // console.log('Exiting traverse()')
   }
 
   /**
@@ -466,6 +525,17 @@ const Log = async (identity, { logId, logHeads, access, entryStorage, headsStora
     await _entries.close()
   }
 
+  /*
+    Custom addition by CT 11/25/23
+    injectDeps is used to inject a validation function. This function is called
+    before writing the hash of an entry to the index storage.
+  */
+  const injectDeps = (validationFunc) => {
+    console.log('oplog/log.js injectDeps() executed.')
+
+    localValidationFunc = validationFunc
+  }
+
   /**
    * Check if an object is a Log.
    * @param {Log} obj
@@ -491,14 +561,31 @@ const Log = async (identity, { logId, logHeads, access, entryStorage, headsStora
    * @private
    */
   const getReferences = async (heads, amount = 0) => {
+    // console.log('getReferences() heads: ', heads)
+    // console.log('amount: ', amount)
+
     let refs = []
     const shouldStopTraversal = async (entry) => {
-      return refs.length >= amount && amount !== -1
+      const val = refs.length >= amount && amount !== -1
+      // console.log('shouldStopTraversal: ', val)
+
+      return val
     }
+
+    // let loopCnt = 0
     for await (const { hash } of traverse(heads, shouldStopTraversal, false)) {
+      // console.log('getReferences() hash: ', hash)
+      // console.log('shouldStopTraversal: ', shouldStopTraversal)
       refs.push(hash)
+
+      // loopCnt++
+      // console.log('loopCnt: ', loopCnt)
     }
+    // console.log('for loop done.')
+
     refs = refs.slice(heads.length + 1, amount)
+    // console.log('refs: ', refs)
+
     return refs
   }
 
@@ -517,6 +604,7 @@ const Log = async (identity, { logId, logHeads, access, entryStorage, headsStora
     iterator,
     clear,
     close,
+    injectDeps,
     access,
     identity,
     storage: _entries
