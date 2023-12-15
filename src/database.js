@@ -124,13 +124,13 @@ const Database = async ({ ipfs, identity, address, name, access, directory, meta
    * @async
    */
   const addOperation = async (op) => {
-    console.log('database.js/addOperation() op: ', op)
+    // console.log('database.js/addOperation() op: ', op)
     const task = async () => {
       // console.log('task started')
       const entry = await log.append(op, { referencesCount })
-      console.log('addOperation() entry: ', entry)
+      // console.log('addOperation() entry: ', entry)
       await sync.add(entry)
-      console.log('onUpdate: ', onUpdate)
+      // console.log('onUpdate: ', onUpdate)
       if (onUpdate) {
         await onUpdate(log, entry)
       }
