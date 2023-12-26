@@ -134,7 +134,7 @@ const Database = async ({ ipfs, identity, address, name, access, directory, meta
       if (onUpdate) {
         await onUpdate(log, entry)
       }
-      // events.emit('update', entry)
+      events.emit('update', entry)
       return entry.hash
     }
     // console.log('queue before: ', queue)

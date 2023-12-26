@@ -605,7 +605,9 @@ const Log = async (identity, { logId, logHeads, access, entryStorage, headsStora
     }
 
     // let loopCnt = 0
-    for await (const { hash } of traverse(heads, shouldStopTraversal, false)) {
+    const traverseAsyncIter = traverse(heads, shouldStopTraversal, false)
+    // console.log('traverseAsyncIter: ', traverseAsyncIter)
+    for await (const { hash } of traverseAsyncIter) {
       // console.log('getReferences() hash: ', hash)
       // console.log('shouldStopTraversal: ', shouldStopTraversal)
       refs.push(hash)
